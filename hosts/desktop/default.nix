@@ -12,6 +12,7 @@
 
     # ../../modules/system/desktop_env/plasma.nix
     # ../../modules/system/desktop_env/sway.nix
+    ./immich_ml.nix
 
     ../../modules/system/desktop_env/awesome.nix
 
@@ -31,14 +32,14 @@
       syncthing.enable = true;
       desktopCfg = {
           enable = true;
-          sway.enable = false;
           wm.awesome.enable = true;
+          emacs.enable = true;
       };
   };
   services.udev.packages = with pkgs; [platformio-core.udev stlink];
 
   hardware.i2c.enable = true;
-  users.users.vebly.extraGroups = ["i2c"];
+  users.users.vebly.extraGroups = ["i2c" "docker"];
   
   boot.kernel.sysctl = {
     "fs.inotify.max_user_watches" = 6000000;
@@ -87,15 +88,23 @@
     package = pkgs-unstable.opentabletdriver;
     daemon.enable = true;
   };
+
+
   # GPU
-  services.xserver.videoDrivers = ["nvidia"];
   # services.xserver.videoDrivers = ["nouveau"];
+
+  services.xserver.videoDrivers = ["nvidia"];
   hardware.graphics.enable = true; #Enable Opengl
+  hardware.nvidia-container-toolkit.enable = true;
   hardware.nvidia = {
-    open = true;
+    open = false;
+    modesetting.enable = true;
     nvidiaSettings = true;
     package = config.boot.kernelPackages.nvidiaPackages.latest;
   };
+
+  virtualisation.docker.enable = true;
+  virtualisation.docker.daemon.settings.features.cdi = true;
 
   environment.systemPackages = with pkgs;
     [
