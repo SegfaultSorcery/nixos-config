@@ -1,3 +1,5 @@
+;;https://docs.syncthing.net/rest/config.html
+
 (require '[clojure.data.xml :as xml]
          '[clojure.string :as str]
          '[babashka.http-client :as http]
@@ -32,21 +34,23 @@
      }))
 
 (defn get-secrets [path]
+  "Returns file system tree where leafs are contents of parent files"
   (let [fname (str (fs/file-name path))]
     (if (fs/directory? path)
       {fname (into {} (map get-secrets (fs/list-dir path)))}
       [fname (str/split-lines (slurp (str path)))])))
 
 
-(defn device->api [[key val]]
+(defn device-secret->api [[key val]]
   {"name" key 
    "deviceID" (first (get val "id"))
    "addresses" (get val "addresses")})
 
 
-(defn folder->api [device-name->id [key val]]
+(defn folder-secret->api [device-name->id [key val]]
   {"label" key
    "id" key
+   "path" (first (get val "path"))
    "devices" (mapv
               (fn [device] {"deviceID" (device-name->id device)})
               (get val "devices") )})
@@ -81,9 +85,9 @@
         folder-secrets (get secrets "folders")
         device-secrets (get secrets "devices")
 
-        device-body (mapv device->api device-secrets)
+        device-body (mapv device-secret->api device-secrets)
         device-name->id (fn [dname] (first (get-in device-secrets [dname "id"])))
-        folder-body (mapv #(folder->api device-name->id %) folder-secrets)]
+        folder-body (mapv #(folder-secret->api device-name->id %) folder-secrets)]
 
     (report-result
      "devices"
@@ -102,8 +106,10 @@
   (def secrets (second (first (get-secrets secrets-path)))) 
   (def folder-secrets (get secrets "folders"))
   (def device-secrets (get secrets "devices"))
-  (def device-body (mapv device->api device-secrets))
+  (def device-body (mapv device-secret->api device-secrets))
   (def device-name->id (fn [dname] (first (get-in device-secrets [dname "id"]))))
-  (def folder-body (mapv #(folder->api device-name->id %) folder-secrets)))
+  (def folder-body (mapv #(folder-secret->api device-name->id %) folder-secrets))
+  (println (http/get (str url "/config/folders") {:headers header} )))
 
 (-main)
+
